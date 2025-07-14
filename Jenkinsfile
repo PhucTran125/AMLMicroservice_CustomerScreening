@@ -4,7 +4,7 @@ pipeline {
         DOCKER_IMAGE = "vpbankhackathon/aml-customer-screening:${env.BUILD_NUMBER}"
         AWS_REGION = "ap-southeast-1"
         ECR_REGISTRY = "711652947591.dkr.ecr.ap-southeast-1.amazonaws.com"
-        AWS_CREDENTIALS = 'my-aws-creds' // Thay bằng ID credentials thực tế
+        AWS_CREDENTIALS = 'your-aws-credentials-id' //
     }
     triggers {
         githubPush()
@@ -19,7 +19,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                bat 'mvnw clean package -DskipTests' // Thay sh bằng bat
+                bat 'mvnw clean package -DskipTests'
             }
         }
         stage('Build Docker Image') {
