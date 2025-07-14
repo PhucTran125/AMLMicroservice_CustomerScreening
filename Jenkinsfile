@@ -4,10 +4,10 @@ pipeline {
         DOCKER_IMAGE = "vpbankhackathon/aml-customer-screening:${env.BUILD_NUMBER}"
         AWS_REGION = "ap-southeast-1"
         ECR_REGISTRY = "711652947591.dkr.ecr.ap-southeast-1.amazonaws.com"
-        AWS_CREDENTIALS = 'my-aws-creds'
+        AWS_CREDENTIALS = 'my-aws-creds' // Thay bằng ID credentials thực tế
     }
     triggers {
-        githubPush() // Thay GitLab bằng GitHub trigger
+        githubPush()
     }
     stages {
         stage('Checkout') {
@@ -19,7 +19,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh './mvnw clean package -DskipTests'
+                bat 'mvnw clean package -DskipTests' // Thay sh bằng bat
             }
         }
         stage('Build Docker Image') {
@@ -37,7 +37,6 @@ pipeline {
                 script {
                     docker.withRegistry("https://${ECR_REGISTRY}", "ecr:${AWS_REGION}:${AWS_CREDENTIALS}") {
                         docker.image(DOCKER_IMAGE).push()
-                        // Tag latest cho master
                         docker.image(DOCKER_IMAGE).push('latest')
                     }
                 }
@@ -52,7 +51,7 @@ pipeline {
             echo 'Pipeline failed!'
         }
         always {
-            sh "docker rmi ${DOCKER_IMAGE} || true"
+            bat "docker rmi ${DOCKER_IMAGE} || true" // Thay sh bằng bat
         }
     }
 }
