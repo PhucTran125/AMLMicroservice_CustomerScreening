@@ -1,5 +1,8 @@
 package com.vpbankhackathon.customer_screening_service.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.vpbankhackathon.customer_screening_service.models.dtos.AMLRequest;
 import com.vpbankhackathon.customer_screening_service.models.dtos.CustomerScreeningRequest;
 import com.vpbankhackathon.customer_screening_service.models.dtos.ScreeningResult;
 import com.vpbankhackathon.customer_screening_service.pubsub.producers.AlertProducer;
@@ -14,10 +17,11 @@ import java.util.Map;
 public class CustomerScreening {
 
     private final Map<String, String> sensitiveList = new HashMap<>();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Autowired
     public CustomerScreening() {
-//        this.alertProducer = alertProducer;
+        // this.alertProducer = alertProducer;
         // Initialize the sensitive list with some dummy data
         sensitiveList.put("John Doe", "Sensitive");
         sensitiveList.put("123456789", "Sensitive");
@@ -41,7 +45,7 @@ public class CustomerScreening {
 
     private static ScreeningResult getScreeningResult(CustomerScreeningRequest request, boolean isMatch) {
         ScreeningResult result = new ScreeningResult();
-        result.setTransactionId(request.getTransactionId());
+        result.setTransactionId(request.getRequestId());
         result.setCustomerName(request.getCustomerName());
         result.setIdentificationNumber(request.getIdentificationNumber());
         if (isMatch) {
@@ -62,9 +66,11 @@ public class CustomerScreening {
     private void raiseAlert(@NotNull CustomerScreeningRequest request) {
         // Logic to raise an alert for suspicious activity
         // This could involve logging the incident, notifying authorities, etc.
-//        alertProducer.sendMessage("Alert: Suspicious activity detected for customer: " + request.getCustomerName() +
-//                " with ID: " + request.getIdentificationNumber());
-        System.out.println("Alert raised for customer: " + request.getCustomerName() + " with ID: "
-                + request.getIdentificationNumber());
+        // alertProducer.sendMessage("Alert: Suspicious activity detected for customer:
+        // " + request.getCustomerName() +
+        // " with ID: " + request.getIdentificationNumber());
+        System.out.println("Alert raised for AML Request ID: " + request.getRequestId() +
+                " - Customer: " + request.getCustomerName() +
+                " with ID: " + request.getIdentificationNumber());
     }
 }
