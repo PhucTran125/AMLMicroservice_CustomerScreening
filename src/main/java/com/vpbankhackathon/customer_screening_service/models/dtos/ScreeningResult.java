@@ -1,16 +1,12 @@
 package com.vpbankhackathon.customer_screening_service.models.dtos;
 
-//import jakarta.persistence.Entity;
-//import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
-//@Entity
 public class ScreeningResult {
-//    @Id
-    private String transactionId;
+    private Long customerId;
     private String customerName;
     private String identificationNumber;
     private RiskLevel riskLevel;

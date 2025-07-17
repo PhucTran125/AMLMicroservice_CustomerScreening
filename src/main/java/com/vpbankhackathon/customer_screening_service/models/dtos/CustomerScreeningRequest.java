@@ -3,16 +3,15 @@ package com.vpbankhackathon.customer_screening_service.models.dtos;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
 
 @Getter
 @Setter
 public class CustomerScreeningRequest {
-    private String customerId;
+    private Long customerId;
     private String customerName;
-    private String identificationNumber;
-    private LocalDate dob;
-    private String address;
+    private String customerIdentificationNumber;
+    private String dob;
     private String nationality;
+    private String residentialAddress;
     private String requestId;
 }

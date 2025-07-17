@@ -4,38 +4,46 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.vpbankhackathon.customer_screening_service.models.dtos.AMLRequest;
 import com.vpbankhackathon.customer_screening_service.models.dtos.CustomerScreeningRequest;
+import com.vpbankhackathon.customer_screening_service.models.dtos.CustomerScreeningResult;
 import com.vpbankhackathon.customer_screening_service.models.dtos.ScreeningResult;
+import com.vpbankhackathon.customer_screening_service.models.entities.PepList;
+import com.vpbankhackathon.customer_screening_service.models.entities.SanctionsList;
 import com.vpbankhackathon.customer_screening_service.pubsub.producers.AlertProducer;
+import com.vpbankhackathon.customer_screening_service.pubsub.producers.CustomerScreeningResultProducer;
+import com.vpbankhackathon.customer_screening_service.repositories.PepListRepository;
+import com.vpbankhackathon.customer_screening_service.repositories.SanctionListRepository;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class CustomerScreening {
-
-    private final Map<String, String> sensitiveList = new HashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Autowired
-    public CustomerScreening() {
-        // this.alertProducer = alertProducer;
-        // Initialize the sensitive list with some dummy data
-        sensitiveList.put("John Doe", "Sensitive");
-        sensitiveList.put("123456789", "Sensitive");
-        // Add more entries as needed
-    }
+    public CustomerScreening() {}
+
+    @Autowired
+    private CustomerScreeningResultProducer customerScreeningResultProducer;
+
+    @Autowired
+    PepListRepository pepListRepository;
+
+    @Autowired
+    SanctionListRepository sanctionListRepository;
 
     public ScreeningResult verifyCustomer(CustomerScreeningRequest request) {
-        if (request == null || request.getCustomerName() == null || request.getIdentificationNumber() == null) {
+        if (request == null || request.getCustomerName() == null || request.getCustomerId() == null) {
             // throw new ScreeningException("Invalid customer data");
             // TODO: Handle the exception properly
         }
 
         assert request != null;
-        boolean isMatch = matchAgainstSensitiveList(request.getCustomerName(), request.getIdentificationNumber());
+        boolean isMatch = matchAgainstSensitiveList(request.getCustomerIdentificationNumber());
         if (isMatch) {
             raiseAlert(request);
         }
@@ -45,9 +53,9 @@ public class CustomerScreening {
 
     private static ScreeningResult getScreeningResult(CustomerScreeningRequest request, boolean isMatch) {
         ScreeningResult result = new ScreeningResult();
-        result.setTransactionId(request.getRequestId());
+        result.setCustomerId(request.getCustomerId());
         result.setCustomerName(request.getCustomerName());
-        result.setIdentificationNumber(request.getIdentificationNumber());
+        result.setIdentificationNumber(request.getCustomerIdentificationNumber());
         if (isMatch) {
             result.setRiskLevel(ScreeningResult.RiskLevel.HIGH);
             result.setDecision(ScreeningResult.Decision.REJECT);
@@ -58,9 +66,23 @@ public class CustomerScreening {
         return result;
     }
 
-    private boolean matchAgainstSensitiveList(String customerName, String identificationNumber) {
-        // Logic to match customer data against a sensitive list
-        return sensitiveList.containsKey(customerName) || sensitiveList.containsKey(identificationNumber);
+    public void handleScreeningResult(ScreeningResult screeningResult, String requestId) {
+        CustomerScreeningResult cSResult = new CustomerScreeningResult();
+        cSResult.setCustomerId(screeningResult.getCustomerId());
+        cSResult.setRequestId(requestId);
+        switch (screeningResult.getDecision()) {
+            case APPROVE -> cSResult.setStatus(CustomerScreeningResult.Status.CLEAR);
+            case REJECT -> cSResult.setStatus(CustomerScreeningResult.Status.SUSPENDED);
+            default -> cSResult.setStatus(CustomerScreeningResult.Status.SUSPICIOUS);
+        }
+        customerScreeningResultProducer.sendMessage(cSResult);
+    }
+
+    private boolean matchAgainstSensitiveList(String identificationNumber) {
+        List<SanctionsList> sanctionsList = sanctionListRepository.findAll();
+        List<PepList> pepList = pepListRepository.findAll();
+        return sanctionsList.stream().map(SanctionsList::getCustomerIdentificationNumber).toList().contains(identificationNumber)
+            || pepList.stream().map(PepList::getCustomerIdentificationNumber).toList().contains(identificationNumber);
     }
 
     private void raiseAlert(@NotNull CustomerScreeningRequest request) {
@@ -71,6 +93,6 @@ public class CustomerScreening {
         // " with ID: " + request.getIdentificationNumber());
         System.out.println("Alert raised for AML Request ID: " + request.getRequestId() +
                 " - Customer: " + request.getCustomerName() +
-                " with ID: " + request.getIdentificationNumber());
+                " with ID: " + request.getCustomerId());
     }
 }
