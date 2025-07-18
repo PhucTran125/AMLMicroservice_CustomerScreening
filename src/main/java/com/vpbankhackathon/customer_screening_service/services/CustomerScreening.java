@@ -43,22 +43,33 @@ public class CustomerScreening {
         }
 
         assert request != null;
-        boolean isMatch = matchAgainstSensitiveList(request.getCustomerIdentificationNumber());
-        if (isMatch) {
+        boolean isMatchPepList = matchAgainstPepList(request.getCustomerIdentificationNumber());
+        boolean isMatchSanctionList = matchAgainstSanctionList(request.getCustomerIdentificationNumber());
+        if (isMatchSanctionList || isMatchPepList) {
             raiseAlert(request);
         }
-        System.out.println(getScreeningResult(request, isMatch).getDecision());
-        return getScreeningResult(request, isMatch);
+        return getScreeningResult(request, isMatchPepList, isMatchSanctionList);
     }
 
-    private static ScreeningResult getScreeningResult(CustomerScreeningRequest request, boolean isMatch) {
+    private static ScreeningResult getScreeningResult(
+        CustomerScreeningRequest request,
+        boolean isMatchPepList,
+        boolean isMatchSanctionList
+    ) {
         ScreeningResult result = new ScreeningResult();
         result.setCustomerId(request.getCustomerId());
         result.setCustomerName(request.getCustomerName());
         result.setIdentificationNumber(request.getCustomerIdentificationNumber());
-        if (isMatch) {
-            result.setRiskLevel(ScreeningResult.RiskLevel.HIGH);
+        if (isMatchPepList || isMatchSanctionList) {
             result.setDecision(ScreeningResult.Decision.REJECT);
+            if (isMatchPepList && isMatchSanctionList) {
+                result.setReason("Matched both PEP and Sanction lists");
+            } else if (isMatchPepList) {
+                result.setReason("Matched PEP list");
+            } else {
+                result.setReason("Matched Sanction list");
+            }
+            result.setRiskLevel(ScreeningResult.RiskLevel.HIGH);
         } else {
             result.setRiskLevel(ScreeningResult.RiskLevel.LOW);
             result.setDecision(ScreeningResult.Decision.APPROVE);
@@ -75,14 +86,22 @@ public class CustomerScreening {
             case REJECT -> cSResult.setStatus(CustomerScreeningResult.Status.SUSPENDED);
             default -> cSResult.setStatus(CustomerScreeningResult.Status.SUSPICIOUS);
         }
+        cSResult.setReason(screeningResult.getReason());
         customerScreeningResultProducer.sendMessage(cSResult);
     }
 
-    private boolean matchAgainstSensitiveList(String identificationNumber) {
+    private boolean matchAgainstSanctionList(String identificationNumber) {
+        // Check against Sanctions list
         List<SanctionsList> sanctionsList = sanctionListRepository.findAll();
+        return sanctionsList.stream()
+            .anyMatch(pep -> pep.getCustomerIdentificationNumber().equals(identificationNumber));
+    }
+
+    private boolean matchAgainstPepList(String identificationNumber) {
+        // Check against PEP list
         List<PepList> pepList = pepListRepository.findAll();
-        return sanctionsList.stream().map(SanctionsList::getCustomerIdentificationNumber).toList().contains(identificationNumber)
-            || pepList.stream().map(PepList::getCustomerIdentificationNumber).toList().contains(identificationNumber);
+        return pepList.stream()
+                .anyMatch(pep -> pep.getCustomerIdentificationNumber().equals(identificationNumber));
     }
 
     private void raiseAlert(@NotNull CustomerScreeningRequest request) {

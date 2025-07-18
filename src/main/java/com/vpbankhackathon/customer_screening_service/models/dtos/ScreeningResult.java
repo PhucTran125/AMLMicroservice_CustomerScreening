@@ -11,6 +11,7 @@ public class ScreeningResult {
     private String identificationNumber;
     private RiskLevel riskLevel;
     private Decision decision;
+    private String reason;
 
     public enum RiskLevel {
         LOW, MEDIUM, HIGH
